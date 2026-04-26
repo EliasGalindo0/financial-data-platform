@@ -1,0 +1,79 @@
+[workspace]
+members = [
+    "crates/shared",
+    "crates/ingestion",
+    "crates/worker",
+    "crates/reporting",
+    "crates/outbox-relay",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7" }
+
+# Web framework
+axum = { version = "0.7", features = ["macros"] }
+tower = { version = "0.4" }
+tower-http = { version = "0.5", features = ["trace", "compression-gzip", "request-id", "timeout"] }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "rust_decimal", "json", "migrate"] }
+
+# Messaging
+rdkafka = { version = "0.36", features = ["cmake-build", "ssl", "sasl"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Validation
+validator = { version = "0.18", features = ["derive"] }
+
+# IDs
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Money / decimals (NEVER use f64 for money)
+rust_decimal = { version = "1", features = ["serde-with-str"] }
+rust_decimal_macros = "1"
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Tracing / observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-opentelemetry = "0.22"
+opentelemetry = { version = "0.21" }
+opentelemetry-otlp = { version = "0.14", features = ["grpc-tonic"] }
+
+# Config
+config = "0.14"
+dotenvy = "0.15"
+
+# Metrics
+prometheus = { version = "0.13", features = ["process"] }
+axum-prometheus = "0.6"
+
+# Retry / resilience
+backon = "0.4"
+
+# Redis (optional: idempotency cache, rate limiting)
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
+
+# HTTP client (for downstream calls)
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+
+# Crypto / hashing
+sha2 = "0.10"
+hex = "0.4"

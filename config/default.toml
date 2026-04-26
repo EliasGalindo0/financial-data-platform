@@ -1,0 +1,18 @@
+# Default configuration — overridden by environment-specific files
+# and APP__ / WORKER__ environment variables
+
+[app]
+listen_addr = "0.0.0.0:8080"
+log_level = "info"
+db_max_connections = 20
+rate_limit_per_minute = 1000
+environment = "development"
+
+[worker]
+worker_concurrency = 4
+max_retries = 5
+retry_backoff_ms = 1000
+
+[relay]
+batch_size = 100
+poll_interval_ms = 200

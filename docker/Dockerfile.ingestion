@@ -1,0 +1,36 @@
+# Multi-stage build — final image is ~15MB (distroless)
+# Stage 1: Build
+FROM rust:1.75-slim-bookworm AS builder
+
+WORKDIR /build
+
+# Cache dependency compilation separately from source
+COPY Cargo.toml Cargo.lock ./
+COPY crates/shared/Cargo.toml crates/shared/
+COPY crates/ingestion/Cargo.toml crates/ingestion/
+COPY crates/worker/Cargo.toml crates/worker/
+COPY crates/reporting/Cargo.toml crates/reporting/
+COPY crates/outbox-relay/Cargo.toml crates/outbox-relay/
+
+# Create stub src files so cargo can resolve the workspace
+RUN find crates -name "Cargo.toml" -exec sh -c 'dir=$(dirname {}); mkdir -p "$dir/src" && echo "fn main(){}" > "$dir/src/main.rs" && touch "$dir/src/lib.rs"' \;
+
+RUN cargo build --release -p ingestion 2>/dev/null || true
+
+# Now copy real source
+COPY crates/ crates/
+COPY migrations/ migrations/
+
+RUN touch crates/*/src/*.rs && \
+    cargo build --release -p ingestion
+
+# Stage 2: Runtime (distroless — no shell, minimal attack surface)
+FROM gcr.io/distroless/cc-debian12
+
+COPY --from=builder /build/target/release/ingestion /ingestion
+
+EXPOSE 8080
+
+USER nonroot:nonroot
+
+ENTRYPOINT ["/ingestion"]

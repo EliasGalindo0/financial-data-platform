@@ -1,0 +1,163 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: finplatform
+      POSTGRES_PASSWORD: dev_password_change_in_prod
+      POSTGRES_DB: finplatform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finplatform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    command: >
+      postgres
+        -c max_connections=200
+        -c shared_buffers=256MB
+        -c effective_cache_size=1GB
+        -c wal_level=replica
+        -c max_wal_senders=3
+
+  # ── Kafka (KRaft mode — no Zookeeper needed) ────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qg
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168         # 7 days
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824    # 1 GB
+      KAFKA_NUM_PARTITIONS: 12               # adjust based on throughput
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Redis (idempotency cache + rate limiting) ────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+
+  # ── Ingestion Service ────────────────────────────────────────────────────────
+  ingestion:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ingestion
+    environment:
+      APP__DATABASE_URL: postgresql://finplatform:dev_password_change_in_prod@postgres:5432/finplatform
+      APP__REDIS_URL: redis://redis:6379
+      APP__LISTEN_ADDR: "0.0.0.0:8080"
+      APP__LOG_LEVEL: info
+      APP__DB_MAX_CONNECTIONS: "20"
+      APP__RATE_LIMIT_PER_MINUTE: "1000"
+      APP__ENVIRONMENT: development
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # ── Worker ───────────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      WORKER__DATABASE_URL: postgresql://finplatform:dev_password_change_in_prod@postgres:5432/finplatform
+      WORKER__KAFKA_BROKERS: kafka:9092
+      WORKER__KAFKA_GROUP_ID: transaction-workers
+      WORKER__KAFKA_TOPIC_TRANSACTIONS: financial.transactions.v1
+      WORKER__KAFKA_TOPIC_DLQ: financial.transactions.dlq
+      WORKER__WORKER_CONCURRENCY: "4"
+      WORKER__MAX_RETRIES: "5"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    deploy:
+      replicas: 2  # Run 2 worker containers
+
+  # ── Outbox Relay ─────────────────────────────────────────────────────────────
+  outbox-relay:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.outbox-relay
+    environment:
+      RELAY__DATABASE_URL: postgresql://finplatform:dev_password_change_in_prod@postgres:5432/finplatform
+      RELAY__KAFKA_BROKERS: kafka:9092
+      RELAY__BATCH_SIZE: "100"
+      RELAY__POLL_INTERVAL_MS: "200"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # ── Reporting ────────────────────────────────────────────────────────────────
+  reporting:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.reporting
+    environment:
+      REPORT__DATABASE_URL: postgresql://finplatform:dev_password_change_in_prod@postgres:5432/finplatform
+      REPORT__LISTEN_ADDR: "0.0.0.0:8082"
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Observability Stack ───────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    ports:
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP gRPC
+
+volumes:
+  postgres_data:
+  kafka_data:
+  redis_data:
+  grafana_data:

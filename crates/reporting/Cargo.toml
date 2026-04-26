@@ -1,0 +1,25 @@
+[package]
+name = "reporting"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "reporting"
+path = "src/main.rs"
+
+[dependencies]
+shared = { path = "../shared" }
+
+tokio = { workspace = true }
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+rust_decimal = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+config = { workspace = true }
+dotenvy = { workspace = true }
