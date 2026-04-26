@@ -2,11 +2,11 @@
 # ==============================================================================
 # Seed via API
 # Cria contas e submete transações de exemplo chamando o serviço de ingestion.
-# Requer que os serviços estejam rodando (make dev ou make docker-up).
+# Requer que os serviços estejam rodando (just dev ou just docker-up).
 #
 # Uso:
 #   bash scripts/seed-api.sh
-#   make seed-api
+#   just seed-api
 # ==============================================================================
 
 set -euo pipefail
@@ -53,7 +53,7 @@ api() {
 check_api() {
     log "Verificando API em $BASE..."
     if ! curl -sf "$BASE/health" > /dev/null; then
-        fail "API não está acessível em $BASE. Execute 'make dev' ou 'make docker-up' primeiro."
+        fail "API não está acessível em $BASE. Execute 'just dev' ou 'just docker-up' primeiro."
     fi
     success "API disponível"
 }
@@ -302,10 +302,10 @@ echo "  Transações submetidas: 8"
 echo "  As transações serão processadas pelo worker em segundos."
 echo ""
 echo -e "${CYAN}Verifique o estado com:${RESET}"
-echo "  make stats          — resumo do banco"
-echo "  make balances       — saldos das contas"
-echo "  make reconcile      — consistência ledger vs saldo"
-echo "  make audit-log      — últimas entradas do audit log"
+echo "  just stats          — resumo do banco"
+echo "  just balances       — saldos das contas"
+echo "  just reconcile      — consistência ledger vs saldo"
+echo "  just audit-log      — últimas entradas do audit log"
 echo ""
 echo -e "${CYAN}Relatórios:${RESET}"
 echo "  curl http://localhost:8082/v1/reports/daily"

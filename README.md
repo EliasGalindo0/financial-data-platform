@@ -14,7 +14,7 @@ A production-grade financial data processing platform built in **Rust** with **P
 - [Data Model](#data-model)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
-- [Makefile — Receitas](#makefile--receitas)
+- [justfile — Receitas](#makefile--receitas)
 - [Running the Platform](#running-the-platform)
   - [Option A — Docker Compose (recommended)](#option-a--docker-compose-recommended)
   - [Option B — Local development](#option-b--local-development)
@@ -296,12 +296,12 @@ financial-data-platform/
 
 ---
 
-## Makefile — Receitas
+## justfile — Receitas
 
-Um `Makefile` cobre todo o ciclo de vida do projeto. Execute `make help` para ver todos os targets.
+Um `justfile` cobre todo o ciclo de vida do projeto. Execute `just help` para ver todos os targets.
 
 ```
-$ make help
+$ just help
 
 Financial Data Platform
 
@@ -363,23 +363,23 @@ Utilitários
 
 ```bash
 # Primeira vez — sobe tudo e popula com dados de teste
-make setup
+just setup
 
-# Desenvolvimento local (após make setup)
-make dev
+# Desenvolvimento local (após just setup)
+just dev
 
 # Ver estado do sistema a qualquer momento
-make stats
-make balances
-make reconcile
+just stats
+just balances
+just reconcile
 
 # Inspecionar problemas
-make dlq-check
-make outbox-lag
-make audit-log
+just dlq-check
+just outbox-lag
+just audit-log
 
 # Reset completo (começa do zero)
-make seed-reset
+just seed-reset
 ```
 
 ---
@@ -606,7 +606,7 @@ O seed popula o banco com dados realistas para você testar o sistema sem precis
 Insere contas, transações históricas com ledger já postado, e um evento pendente no outbox. Pode ser executado múltiplas vezes sem duplicar dados.
 
 ```bash
-make seed
+just seed
 # ou
 psql $DATABASE_URL -f scripts/seed.sql
 ```
@@ -642,12 +642,12 @@ Requer os serviços rodando. Cria as contas via API e submete transações inclu
 
 ```bash
 # Sobe serviços primeiro
-make dev        # local
+just dev        # local
 # ou
-make docker-up  # Docker
+just docker-up  # Docker
 
 # Em outro terminal
-make seed-api
+just seed-api
 ```
 
 O script `scripts/seed-api.sh` executa em sequência:
@@ -662,10 +662,10 @@ O script `scripts/seed-api.sh` executa em sequência:
 Ao final exibe como verificar o estado:
 
 ```bash
-make stats        # resumo de transações e saldos
-make balances     # tabela de saldos por conta
-make reconcile    # verifica ledger vs saldo (deve mostrar drift = 0)
-make audit-log    # últimas entradas do registro de auditoria
+just stats        # resumo de transações e saldos
+just balances     # tabela de saldos por conta
+just reconcile    # verifica ledger vs saldo (deve mostrar drift = 0)
+just audit-log    # últimas entradas do registro de auditoria
 
 # Relatórios regulatórios
 curl http://localhost:8082/v1/reports/daily
@@ -678,7 +678,7 @@ curl http://localhost:8082/v1/reports/ctr           # CTR >= $10.000 USD
 Para voltar ao estado inicial a qualquer momento:
 
 ```bash
-make seed-reset   # dropa banco, recria, migra, seed SQL
+just seed-reset   # dropa banco, recria, migra, seed SQL
 ```
 
 ---
