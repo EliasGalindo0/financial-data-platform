@@ -14,11 +14,11 @@ A production-grade financial data processing platform built in **Rust** with **P
 - [Data Model](#data-model)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
-- [justfile — Receitas](#makefile--receitas)
+- [justfile — Commands](#justfile--commands)
 - [Running the Platform](#running-the-platform)
   - [Option A — Docker Compose (recommended)](#option-a--docker-compose-recommended)
   - [Option B — Local development](#option-b--local-development)
-  - [Seed de dados](#seed-de-dados)
+  - [Data seeding](#data-seeding)
 - [API Reference](#api-reference)
   - [Accounts](#accounts)
   - [Transactions](#transactions)
@@ -296,70 +296,70 @@ financial-data-platform/
 
 ---
 
-## justfile — Receitas
+## justfile — Commands
 
-Um `justfile` cobre todo o ciclo de vida do projeto. Execute `just help` para ver todos os targets.
+A `justfile` covers the entire project lifecycle. Run `just help` to see all targets.
 
 ```
 $ just help
 
 Financial Data Platform
 
-Setup & Inicialização
-  setup                  Sobe infra + migra + cria topics + seed (tudo de uma vez)
-  infra-up               Sobe apenas Postgres, Redis e Kafka via Docker
-  infra-down             Para a infraestrutura (preserva volumes)
-  wait-db                Aguarda Postgres aceitar conexões
+Setup & Initialization
+  setup                  Starts infra + migrates + creates topics + seed (all at once)
+  infra-up               Starts only Postgres, Redis and Kafka via Docker
+  infra-down             Stops infrastructure (preserves volumes)
+  wait-db                Waits for Postgres to accept connections
 
-Banco de dados
-  migrate                Executa todas as migrations pendentes
-  migrate-status         Mostra status das migrations
-  migrate-revert         Reverte a última migration
-  db-reset               Dropa e recria o banco (DESTRÓI TODOS OS DADOS)
-  db-shell               Abre psql interativo no banco
-  db-dump                Faz dump do banco para backup.sql
+Database
+  migrate                Runs all pending migrations
+  migrate-status         Shows migration status
+  migrate-revert         Reverts the last migration
+  db-reset               Drops and recreates the database (DESTROYS ALL DATA)
+  db-shell               Opens interactive psql in the database
+  db-dump                Dumps the database to backup.sql
 
 Kafka
-  kafka-topics           Cria os topics necessários
-  kafka-topics-list      Lista os topics existentes
-  kafka-consumer-groups  Lista consumer groups e offsets
+  kafka-topics           Creates required topics
+  kafka-topics-list      Lists existing topics
+  kafka-consumer-groups  Lists consumer groups and offsets
 
 Seed
-  seed                   Insere dados via SQL direto (idempotente)
-  seed-api               Cria dados via API (requer serviços rodando)
-  seed-reset             Reseta o banco e refaz o seed do zero
+  seed                   Inserts data via SQL directly (idempotent)
+  seed-api               Creates data via API (requires services running)
+  seed-reset             Resets the database and re-runs seed from scratch
 
-Serviços locais
-  dev                    Roda todos os serviços em paralelo
-  dev-ingestion          Roda só o ingestion
-  dev-worker             Roda só o worker
-  dev-relay              Roda só o outbox relay
-  dev-reporting          Roda só o reporting
+Local services
+  dev                    Runs all services in parallel
+  dev-ingestion          Runs only ingestion
+  dev-worker             Runs only worker
+  dev-relay              Runs only outbox relay
+  dev-reporting          Runs only reporting
 
 Docker Compose
-  docker-up              Sobe stack completo (build + start)
-  docker-down            Para os containers (preserva volumes)
-  docker-destroy         Para e remove volumes (DESTRÓI DADOS)
-  docker-logs            Acompanha logs de todos os containers
-  docker-ps              Lista containers e status
+  docker-up              Starts full stack (build + start)
+  docker-down            Stops containers (preserves volumes)
+  docker-destroy         Stops and removes volumes (DESTROYS DATA)
+  docker-logs            Follows logs from all containers
+  docker-ps              Lists containers and status
 
-Testes
-  test                   Roda todos os testes
-  test-api               Smoke test contra a API
-  lint                   Roda clippy
-  fmt                    Formata o código
+Tests
+  test                   Runs all tests
+  test-api               Smoke test against the API
+  lint                   Runs clippy
+  fmt                    Formats the code
 
-Utilitários
-  stats                  Resumo do estado do sistema
-  balances               Saldo de todas as contas
-  reconcile              Verifica consistência ledger vs saldo
-  audit-log              Últimas 20 entradas do audit log
-  dlq-check              Mensagens na Dead Letter Queue
-  outbox-lag             Eventos pendentes no outbox
-  clean                  Remove artefatos de build
+Utilities
+  stats                  Summary of system state
+  balances               Balance of all accounts
+  reconcile              Verifies ledger vs balance consistency
+  audit-log              Last 20 entries in the audit log
+  dlq-check              Messages in the Dead Letter Queue
+  outbox-lag             Pending events in the outbox
+  clean                  Removes build artifacts
 ```
 
-### Comandos mais usados no dia a dia
+### Most commonly used day-to-day commands
 
 ```bash
 # Primeira vez — sobe tudo e popula com dados de teste
@@ -597,88 +597,88 @@ cargo test --workspace
 
 ---
 
-### Seed de dados
+### Data seeding
 
-O seed popula o banco com dados realistas para você testar o sistema sem precisar criar nada manualmente.
+The seed populates the database with realistic data so you can test the system without having to create anything manually.
 
-#### Via SQL (direto no banco — idempotente)
+#### Via SQL (direct to database — idempotent)
 
-Insere contas, transações históricas com ledger já postado, e um evento pendente no outbox. Pode ser executado múltiplas vezes sem duplicar dados.
+Inserts accounts, historical transactions with ledger already posted, and a pending event in the outbox. Can be executed multiple times without duplicating data.
 
 ```bash
 just seed
-# ou
+# or
 psql $DATABASE_URL -f scripts/seed.sql
 ```
 
-O que é criado:
+What is created:
 
-| Conta | Owner | Saldo inicial | Notas |
+| Account | Owner | Initial balance | Notes |
 |---|---|---|---|
-| ACC-ALICE-USD | user-alice | $33.190,11 | Conta principal com histórico de transações |
-| ACC-BOB-USD | user-bob | $500,00 | Saldo baixo — boa para testar insufficient funds |
-| ACC-CORP-USD | org-acme | $16.500,00 | Conta corporativa |
-| ACC-MERCHANT-USD | org-shop | $25.299,99 | Loja online |
-| ACC-INACTIVE | user-charlie | $0,00 | Conta inativa — testa rejeição |
-| ACC-DAVE-GBP | user-dave | £8.000,00 | Conta em GBP |
-| ACC-EVE-USD | user-eve | $0,00 | Para testes de fraude |
+| ACC-ALICE-USD | user-alice | $33,190.11 | Main account with transaction history |
+| ACC-BOB-USD | user-bob | $500.00 | Low balance — good for testing insufficient funds |
+| ACC-CORP-USD | org-acme | $16,500.00 | Corporate account |
+| ACC-MERCHANT-USD | org-shop | $25,299.99 | Online store |
+| ACC-INACTIVE | user-charlie | $0.00 | Inactive account — tests rejection |
+| ACC-DAVE-GBP | user-dave | £8,000.00 | GBP account |
+| ACC-EVE-USD | user-eve | $0.00 | For fraud testing |
 
-Transações incluídas:
+Included transactions:
 
-| ID curto | Tipo | Status | Valor | Descrição |
+| Short ID | Type | Status | Amount | Description |
 |---|---|---|---|---|
-| seed-txn-001 | CREDIT | SETTLED | $50.000 | Depósito inicial Alice |
-| seed-txn-002 | CREDIT | SETTLED | $500 | Depósito inicial Bob |
-| seed-txn-003 | TRANSFER | SETTLED | $1.500 | Alice -> Corp (fatura) |
-| seed-txn-004 | TRANSFER | SETTLED | $299,99 | Alice -> Merchant (compra) |
-| seed-txn-005 | FEE | SETTLED | $9,90 | Taxa mensal de Alice |
-| seed-txn-006 | TRANSFER | FAILED | $9.999 | Bob sem saldo — erro esperado |
-| seed-txn-007 | TRANSFER | SETTLED | $15.000 | Alto valor — aparece no CTR |
-| seed-txn-008 | TRANSFER | PENDING | $200 | Pendente — processado pelo worker |
+| seed-txn-001 | CREDIT | SETTLED | $50,000 | Alice initial deposit |
+| seed-txn-002 | CREDIT | SETTLED | $500 | Bob initial deposit |
+| seed-txn-003 | TRANSFER | SETTLED | $1,500 | Alice -> Corp (invoice) |
+| seed-txn-004 | TRANSFER | SETTLED | $299.99 | Alice -> Merchant (purchase) |
+| seed-txn-005 | FEE | SETTLED | $9.90 | Alice monthly fee |
+| seed-txn-006 | TRANSFER | FAILED | $9,999 | Bob insufficient funds — expected error |
+| seed-txn-007 | TRANSFER | SETTLED | $15,000 | High value — appears in CTR |
+| seed-txn-008 | TRANSFER | PENDING | $200 | Pending — processed by worker |
 
-#### Via API (cria dados em tempo real)
+#### Via API (creates data in real-time)
 
-Requer os serviços rodando. Cria as contas via API e submete transações incluindo cenários de erro e teste de idempotência.
+Requires services running. Creates accounts via API and submits transactions including error scenarios and idempotency testing.
 
 ```bash
-# Sobe serviços primeiro
+# Start services first
 just dev        # local
-# ou
+# or
 just docker-up  # Docker
 
-# Em outro terminal
+# In another terminal
 just seed-api
 ```
 
-O script `scripts/seed-api.sh` executa em sequência:
-1. Cria 4 contas (Alice, Bob, Corp, Merchant)
-2. Faz depósitos iniciais em cada conta
-3. Submete 4 transferências entre contas
-4. Cobra uma taxa (Fee)
-5. Testa transferência com saldo insuficiente
-6. Testa replay idempotente da mesma transferência (verifica `was_duplicate: true`)
-7. Salva os IDs gerados em `/tmp/seed-ids.env` para reuso
+The `scripts/seed-api.sh` script executes in sequence:
+1. Creates 4 accounts (Alice, Bob, Corp, Merchant)
+2. Makes initial deposits to each account
+3. Submits 4 transfers between accounts
+4. Charges a fee (Fee)
+5. Tests transfer with insufficient funds
+6. Tests idempotent replay of the same transfer (verifies `was_duplicate: true`)
+7. Saves generated IDs to `/tmp/seed-ids.env` for reuse
 
-Ao final exibe como verificar o estado:
+At the end, shows how to verify the state:
 
 ```bash
-just stats        # resumo de transações e saldos
-just balances     # tabela de saldos por conta
-just reconcile    # verifica ledger vs saldo (deve mostrar drift = 0)
-just audit-log    # últimas entradas do registro de auditoria
+just stats        # summary of transactions and balances
+just balances     # balance table per account
+just reconcile    # verifies ledger vs balance (should show drift = 0)
+just audit-log    # last entries in the audit log
 
-# Relatórios regulatórios
+# Regulatory reports
 curl http://localhost:8082/v1/reports/daily
-curl http://localhost:8082/v1/reports/high-value   # entradas >= $10.000
-curl http://localhost:8082/v1/reports/ctr           # CTR >= $10.000 USD
+curl http://localhost:8082/v1/reports/high-value   # entries >= $10,000
+curl http://localhost:8082/v1/reports/ctr           # CTR >= $10,000 USD
 ```
 
-#### Reset completo
+#### Complete reset
 
-Para voltar ao estado inicial a qualquer momento:
+To return to the initial state at any time:
 
 ```bash
-just seed-reset   # dropa banco, recria, migra, seed SQL
+just seed-reset   # drops database, recreates, migrates, seeds SQL
 ```
 
 ---
