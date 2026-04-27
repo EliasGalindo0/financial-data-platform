@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="640" viewBox="0 0 900 640">
+  <defs>
+    <style>
+      .bg { fill: #1e1e2e; }
+      .titlebar { fill: #181825; }
+      .dot-red { fill: #f38ba8; }
+      .dot-yellow { fill: #f9e2af; }
+      .dot-green { fill: #a6e3a1; }
+      .prompt { fill: #89b4fa; font-family: 'Fira Code', 'Courier New', monospace; font-size: 13px; }
+      .cmd { fill: #cdd6f4; font-family: 'Fira Code', 'Courier New', monospace; font-size: 13px; }
+      .comment { fill: #6c7086; font-family: 'Fira Code', 'Courier New', monospace; font-size: 13px; font-style: italic; }
+      .output { fill: #cdd6f4; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+      .header { fill: #89dceb; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; font-weight: bold; }
+      .sep { fill: #585b70; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+      .green { fill: #a6e3a1; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+      .yellow { fill: #f9e2af; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+      .red { fill: #f38ba8; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+      .blue { fill: #89b4fa; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+      .mauve { fill: #cba6f7; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+      .title-text { fill: #6c7086; font-family: 'Fira Code', 'Courier New', monospace; font-size: 12px; }
+      .section-label { fill: #fab387; font-family: 'Fira Code', 'Courier New', monospace; font-size: 11px; font-weight: bold; }
+    </style>
+  </defs>
+
+  <!-- Window background -->
+  <rect width="900" height="640" rx="10" ry="10" class="bg"/>
+
+  <!-- Title bar -->
+  <rect width="900" height="36" rx="10" ry="10" class="titlebar"/>
+  <rect y="20" width="900" height="16" class="titlebar"/>
+
+  <!-- Traffic lights -->
+  <circle cx="20" cy="18" r="6" class="dot-red"/>
+  <circle cx="40" cy="18" r="6" class="dot-yellow"/>
+  <circle cx="60" cy="18" r="6" class="dot-green"/>
+
+  <!-- Title -->
+  <text x="450" y="23" text-anchor="middle" class="title-text">financial-data-platform — bash</text>
+
+  <!-- ─── Section 1: docker ps ─── -->
+  <!-- Command line -->
+  <text x="20" y="62" class="prompt">❯ </text>
+  <text x="40" y="62" class="cmd">docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"</text>
+
+  <!-- Table header -->
+  <text x="20" y="82" class="header">NAMES                IMAGE                         STATUS                    PORTS</text>
+  <text x="20" y="82" class="sep">──────────────────────────────────────────────────────────────────────────────────────────────</text>
+
+  <!-- Table rows -->
+  <text x="20" y="98" class="green">docker-postgres-1</text>
+  <text x="175" y="98" class="output">  postgres:16-alpine            </text>
+  <text x="430" y="98" class="green">Up 11 minutes (healthy)</text>
+  <text x="620" y="98" class="blue">  0.0.0.0:5432->5432/tcp</text>
+
+  <text x="20" y="114" class="green">docker-redis-1   </text>
+  <text x="175" y="114" class="output">  redis:7-alpine                </text>
+  <text x="430" y="114" class="green">Up 11 minutes          </text>
+  <text x="620" y="114" class="blue">  0.0.0.0:6379->6379/tcp</text>
+
+  <text x="20" y="130" class="green">docker-kafka-1   </text>
+  <text x="175" y="130" class="output">  confluentinc/cp-kafka:7.6.0   </text>
+  <text x="430" y="130" class="green">Up 11 minutes (healthy)</text>
+  <text x="620" y="130" class="blue">  0.0.0.0:9092->9092/tcp</text>
+
+  <!-- ─── Divider ─── -->
+  <line x1="20" y1="148" x2="880" y2="148" stroke="#313244" stroke-width="1"/>
+
+  <!-- ─── Section 2: DB Tables ─── -->
+  <text x="20" y="168" class="prompt">❯ </text>
+  <text x="40" y="168" class="cmd">psql $DATABASE_URL -c "\dt"</text>
+
+  <text x="20" y="188" class="header">                List of relations</text>
+  <text x="20" y="204" class="sep"> Schema │        Name        │ Type  │    Owner    </text>
+  <text x="20" y="204" class="sep">────────┼────────────────────┼───────┼─────────────</text>
+  <text x="20" y="220" class="output"> public │ </text><text x="74" y="220" class="mauve">accounts          </text><text x="240" y="220" class="output"> │ table │ finplatform</text>
+  <text x="20" y="234" class="output"> public │ </text><text x="74" y="234" class="mauve">audit_log         </text><text x="240" y="234" class="output"> │ table │ finplatform</text>
+  <text x="20" y="248" class="output"> public │ </text><text x="74" y="248" class="mauve">dead_letter_queue </text><text x="240" y="248" class="output"> │ table │ finplatform</text>
+  <text x="20" y="262" class="output"> public │ </text><text x="74" y="262" class="mauve">ledger_entries    </text><text x="240" y="262" class="output"> │ table │ finplatform</text>
+  <text x="20" y="276" class="output"> public │ </text><text x="74" y="276" class="mauve">outbox_events     </text><text x="240" y="276" class="output"> │ table │ finplatform</text>
+  <text x="20" y="290" class="output"> public │ </text><text x="74" y="290" class="mauve">regulatory_reports</text><text x="240" y="290" class="output"> │ table │ finplatform</text>
+  <text x="20" y="304" class="output"> public │ </text><text x="74" y="304" class="mauve">transactions      </text><text x="240" y="304" class="output"> │ table │ finplatform</text>
+
+  <!-- ─── Divider ─── -->
+  <line x1="20" y1="318" x2="880" y2="318" stroke="#313244" stroke-width="1"/>
+
+  <!-- ─── Section 3: Transaction stats ─── -->
+  <text x="20" y="338" class="prompt">❯ </text>
+  <text x="40" y="338" class="cmd">psql $DATABASE_URL -c "SELECT status, transaction_type, COUNT(*), SUM(amount) FROM transactions GROUP BY 1,2 ORDER BY 1,2;"</text>
+
+  <text x="20" y="358" class="sep"> status  │ transaction_type │ count │ total_volume </text>
+  <text x="20" y="358" class="sep">─────────┼──────────────────┼───────┼──────────────</text>
+  <text x="20" y="374" class="output"> </text><text x="26" y="374" class="yellow">PENDING </text><text x="96" y="374" class="output"> │ CREDIT           │     1 │    3000.0000</text>
+  <text x="20" y="388" class="output"> </text><text x="26" y="388" class="green">SETTLED </text><text x="96" y="388" class="output"> │ CREDIT           │     1 │    1500.0000</text>
+  <text x="20" y="402" class="output"> </text><text x="26" y="402" class="green">SETTLED </text><text x="96" y="402" class="output"> │ DEBIT            │     1 │     200.0000</text>
+  <text x="20" y="416" class="output"> </text><text x="26" y="416" class="green">SETTLED </text><text x="96" y="416" class="output"> │ FEE              │     1 │      15.0000</text>
+  <text x="20" y="430" class="output"> </text><text x="26" y="430" class="green">SETTLED </text><text x="96" y="430" class="output"> │ TRANSFER         │     1 │     500.0000</text>
+  <text x="20" y="444" class="output">(5 rows)</text>
+
+  <!-- ─── Divider ─── -->
+  <line x1="20" y1="458" x2="880" y2="458" stroke="#313244" stroke-width="1"/>
+
+  <!-- ─── Section 4: Account balances ─── -->
+  <text x="20" y="478" class="prompt">❯ </text>
+  <text x="40" y="478" class="cmd">psql $DATABASE_URL -c "SELECT external_id, owner_id, currency, balance FROM accounts ORDER BY external_id;"</text>
+
+  <text x="20" y="498" class="sep"> external_id │  owner_id   │ currency │   balance   </text>
+  <text x="20" y="498" class="sep">─────────────┼─────────────┼──────────┼─────────────</text>
+  <text x="20" y="514" class="output"> acc_001     │ owner_alice │ </text><text x="230" y="514" class="blue">USD</text><text x="254" y="514" class="output">      │ </text><text x="266" y="514" class="green">25000.0000</text>
+  <text x="20" y="528" class="output"> acc_002     │ owner_bob   │ </text><text x="230" y="528" class="blue">USD</text><text x="254" y="528" class="output">      │ </text><text x="266" y="528" class="green">12500.5000</text>
+  <text x="20" y="542" class="output"> acc_003     │ owner_carol │ </text><text x="230" y="542" class="blue">EUR</text><text x="254" y="542" class="output">      │ </text><text x="266" y="542" class="green"> 8750.7500</text>
+
+  <!-- ─── Footer status bar ─── -->
+  <rect x="0" y="610" width="900" height="30" rx="0" class="titlebar"/>
+  <rect x="0" y="620" width="900" height="20" rx="0" class="titlebar"/>
+  <rect x="0" y="610" width="900" height="10" class="titlebar"/>
+
+  <!-- Status bar items -->
+  <rect x="0" y="610" width="160" height="30" fill="#89b4fa" rx="0"/>
+  <text x="10" y="630" fill="#1e1e2e" font-family="'Fira Code', 'Courier New', monospace" font-size="12px" font-weight="bold"> ⬡ financial-data-platform</text>
+
+  <rect x="160" y="610" width="100" height="30" fill="#a6e3a1" rx="0"/>
+  <text x="170" y="630" fill="#1e1e2e" font-family="'Fira Code', 'Courier New', monospace" font-size="12px" font-weight="bold"> ✓ infra: UP</text>
+
+  <rect x="260" y="610" width="130" height="30" fill="#313244" rx="0"/>
+  <text x="270" y="630" fill="#cdd6f4" font-family="'Fira Code', 'Courier New', monospace" font-size="12px"> PostgreSQL 16</text>
+
+  <rect x="390" y="610" width="100" height="30" fill="#313244" rx="0"/>
+  <text x="400" y="630" fill="#cdd6f4" font-family="'Fira Code', 'Courier New', monospace" font-size="12px"> Kafka KRaft</text>
+
+  <rect x="490" y="610" width="80" height="30" fill="#313244" rx="0"/>
+  <text x="500" y="630" fill="#cdd6f4" font-family="'Fira Code', 'Courier New', monospace" font-size="12px"> Redis 7</text>
+
+  <text x="760" y="630" fill="#6c7086" font-family="'Fira Code', 'Courier New', monospace" font-size="11px"> main  Rust 1.93</text>
+</svg>

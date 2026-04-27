@@ -37,6 +37,10 @@ A production-grade financial data processing platform built in **Rust** with **P
 
 ---
 
+![Platform running — infra up, schema migrated, live transaction data](docs/images/platform-running.svg)
+
+---
+
 ## Overview
 
 This platform ingests financial transactions via a REST API, processes them asynchronously through Kafka-backed workers, maintains a double-entry ledger, enforces idempotency, and generates regulatory reports. Every state change is recorded in an immutable audit log.
