@@ -6,6 +6,7 @@ pub struct WorkerConfig {
     pub kafka_brokers: String,
     pub kafka_group_id: String,
     pub kafka_topic_transactions: String,
+    #[allow(dead_code)]
     pub kafka_topic_dlq: String,
     pub db_max_connections: u32,
     pub worker_concurrency: usize,

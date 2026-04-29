@@ -1,12 +1,12 @@
 use axum::{
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
-    extract::State,
     Json,
 };
 use chrono::{Duration, Utc};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 

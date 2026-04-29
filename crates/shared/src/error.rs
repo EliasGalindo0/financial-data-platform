@@ -21,7 +21,9 @@ pub enum DomainError {
     },
 
     // Business logic
-    #[error("insufficient funds: account={account_id}, required={required}, available={available}")]
+    #[error(
+        "insufficient funds: account={account_id}, required={required}, available={available}"
+    )]
     InsufficientFunds {
         account_id: Uuid,
         required: String,
@@ -38,11 +40,7 @@ pub enum DomainError {
     TransactionNotFound(Uuid),
 
     #[error("invalid state transition: {from} → {to} for transaction {id}")]
-    InvalidStateTransition {
-        id: Uuid,
-        from: String,
-        to: String,
-    },
+    InvalidStateTransition { id: Uuid, from: String, to: String },
 
     // Optimistic locking
     #[error("concurrent modification detected for {entity} {id} (expected version {expected}, got {actual})")]

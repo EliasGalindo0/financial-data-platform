@@ -147,7 +147,7 @@ impl Transaction {
             return Err(crate::error::DomainError::InvalidStateTransition {
                 id: self.id,
                 from: format!("{:?}", self.status),
-                to: format!("{:?}", next),
+                to: format!("{next:?}"),
             });
         }
         self.status = next;

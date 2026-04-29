@@ -11,6 +11,7 @@
 ///   - Currency Transaction Report (CTR) for > $10,000 cash equivalents
 use axum::{routing::get, Router};
 use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 mod config;
 mod reports;
@@ -18,7 +19,12 @@ mod reports;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cfg = config::ReportingConfig::load()?;
-    tracing_subscriber::fmt().json().init();
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&cfg.log_level)),
+        )
+        .init();
 
     let pool = shared::db::create_pool(&cfg.database_url, cfg.db_max_connections).await?;
 
@@ -26,7 +32,10 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/v1/reports/daily", get(reports::daily_summary))
-        .route("/v1/reports/high-value", get(reports::high_value_transactions))
+        .route(
+            "/v1/reports/high-value",
+            get(reports::high_value_transactions),
+        )
         .route("/v1/reports/ctr", get(reports::currency_transaction_report))
         .route("/health", get(|| async { "ok" }))
         .with_state(state);

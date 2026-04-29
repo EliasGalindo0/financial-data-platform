@@ -59,8 +59,8 @@ async fn main() -> anyhow::Result<()> {
 fn init_tracing(cfg: &AppConfig) -> anyhow::Result<()> {
     use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&cfg.log_level));
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&cfg.log_level));
 
     tracing_subscriber::registry()
         .with(filter)

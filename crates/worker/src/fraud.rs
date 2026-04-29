@@ -5,8 +5,8 @@
 /// Here we show the integration point with a simple rule set.
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use uuid::Uuid;
 use std::time::Duration;
+use uuid::Uuid;
 
 pub struct FraudResult {
     pub is_blocked: bool,

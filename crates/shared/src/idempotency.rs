@@ -14,7 +14,6 @@
 ///   PostgreSQL UNIQUE constraint gives us atomic check-and-insert for free.
 ///   Redis is used *additionally* for sub-millisecond hot-path caching of
 ///   recently processed keys (< 5 min TTL) to avoid DB round-trips on retries.
-
 use sha2::{Digest, Sha256};
 use std::fmt;
 
@@ -40,7 +39,10 @@ impl IdempotencyKey {
             return Err(IdempotencyKeyError::TooLong(s.len()));
         }
         // Only allow URL-safe characters
-        if !s.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        if !s
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
             return Err(IdempotencyKeyError::InvalidChars);
         }
         Ok(Self(s))

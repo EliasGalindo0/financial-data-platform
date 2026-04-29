@@ -75,24 +75,24 @@ pub async fn submit_transaction(
         .and_then(|v| v.to_str().ok())
         .ok_or(ApiError::MissingIdempotencyKey)?;
 
-    let idempotency_key = IdempotencyKey::new(raw_key)
-        .map_err(|e| ApiError::InvalidIdempotencyKey(e.to_string()))?;
+    let idempotency_key =
+        IdempotencyKey::new(raw_key).map_err(|e| ApiError::InvalidIdempotencyKey(e.to_string()))?;
 
     // ── 2. Validate request body ─────────────────────────────────────────────
     body.validate().map_err(|e| {
         ApiError::ValidationError(
             e.field_errors()
                 .iter()
-                .map(|(f, errs)| format!("{}: {}", f, errs[0].message.as_deref().unwrap_or("invalid")))
+                .map(|(f, errs)| {
+                    format!("{}: {}", f, errs[0].message.as_deref().unwrap_or("invalid"))
+                })
                 .collect::<Vec<_>>()
                 .join(", "),
         )
     })?;
 
     if body.amount <= Decimal::ZERO {
-        return Err(ApiError::ValidationError(
-            "amount must be positive".into(),
-        ));
+        return Err(ApiError::ValidationError("amount must be positive".into()));
     }
 
     // Business-logic validation
@@ -407,7 +407,8 @@ impl IntoResponse for ApiError {
             ),
             ApiError::NotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND", self.to_string()),
             ApiError::Domain(e) => {
-                let status = StatusCode::from_u16(e.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+                let status = StatusCode::from_u16(e.http_status())
+                    .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
                 (status, "DOMAIN_ERROR", self.to_string())
             }
             _ => {

@@ -2,13 +2,14 @@
 // The actual entry writing is in processor.rs (co-located with the transaction).
 
 use rust_decimal::Decimal;
-use sqlx::Row;
 use sqlx::PgPool;
+use sqlx::Row;
 use uuid::Uuid;
 
 /// Compute the expected balance from ledger entries and compare to accounts.balance.
 /// Returns None if they match, or Some((ledger_balance, account_balance)) if they diverge.
 /// Run this in a reconciliation job, not in the hot path.
+#[allow(dead_code)]
 pub async fn verify_account_balance(
     pool: &PgPool,
     account_id: Uuid,

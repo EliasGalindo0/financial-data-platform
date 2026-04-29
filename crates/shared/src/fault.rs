@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{OnceLock, Mutex},
+    sync::{Mutex, OnceLock},
 };
 
 use uuid::Uuid;
@@ -88,7 +88,9 @@ fn config() -> &'static FaultConfig {
         let mut cfg = FaultConfig::default();
         let raw = std::env::var("FDP_FAULTS").unwrap_or_default();
         for part in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-            let Some((k, v)) = part.split_once('=') else { continue };
+            let Some((k, v)) = part.split_once('=') else {
+                continue;
+            };
             let key = k.trim().to_string();
             let val = v.trim();
 
@@ -101,10 +103,9 @@ fn config() -> &'static FaultConfig {
                     .ok()
                     .filter(|n| *n > 0)
                     .map(Rule::Every),
-                _ if val.starts_with("rate:") => val["rate:".len()..]
-                    .parse::<f32>()
-                    .ok()
-                    .map(Rule::Rate),
+                _ if val.starts_with("rate:") => {
+                    val["rate:".len()..].parse::<f32>().ok().map(Rule::Rate)
+                }
                 _ => None,
             };
 
@@ -137,4 +138,3 @@ mod tests {
         assert_eq!(a, b);
     }
 }
-

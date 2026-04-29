@@ -18,6 +18,7 @@ use rdkafka::{
 };
 use sqlx::PgPool;
 use tracing::{error, info};
+use tracing_subscriber::EnvFilter;
 
 mod config;
 use config::RelayConfig;
@@ -25,15 +26,20 @@ use config::RelayConfig;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cfg = RelayConfig::load()?;
-    tracing_subscriber::fmt().json().init();
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&cfg.log_level)),
+        )
+        .init();
 
     let pool = shared::db::create_pool(&cfg.database_url, 5).await?;
 
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", &cfg.kafka_brokers)
         .set("message.timeout.ms", "10000")
-        .set("acks", "all")                    // Wait for all replicas
-        .set("enable.idempotence", "true")     // Exactly-once producer semantics
+        .set("acks", "all") // Wait for all replicas
+        .set("enable.idempotence", "true") // Exactly-once producer semantics
         .set("compression.type", "snappy")
         .create()?;
 

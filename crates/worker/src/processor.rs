@@ -18,11 +18,7 @@ use sqlx::Row;
 use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
 
-use shared::{
-    audit,
-    error::DomainError,
-    events::EventEnvelope,
-};
+use shared::{audit, error::DomainError, events::EventEnvelope};
 
 use crate::fraud::FraudChecker;
 
@@ -142,14 +138,14 @@ pub async fn process_transaction(
     .await?
     .ok_or(ProcessError::NotFound(transaction_id))?;
 
-    let txn_id: Uuid = txn_row.try_get("id")?;
+    let _txn_id: Uuid = txn_row.try_get("id")?;
     let txn_status: Option<String> = txn_row.try_get("status")?;
     let txn_amount: Decimal = txn_row.try_get("amount")?;
     let txn_transaction_type: Option<String> = txn_row.try_get("transaction_type")?;
     let txn_source_account_id: Option<Uuid> = txn_row.try_get("source_account_id")?;
     let txn_dest_account_id: Option<Uuid> = txn_row.try_get("dest_account_id")?;
     let txn_version: i64 = txn_row.try_get("version")?;
-    let txn_retry_count: Option<i32> = txn_row.try_get("retry_count")?;
+    let _txn_retry_count: Option<i32> = txn_row.try_get("retry_count")?;
     let txn_compliance_checked: Option<bool> = txn_row.try_get("compliance_checked")?;
 
     // ── Idempotency: skip if already in a terminal state ──────────────────────
@@ -170,8 +166,7 @@ pub async fn process_transaction(
             // requeue through the dead-letter queue workflow.
             tx.rollback().await.ok();
             return Err(ProcessError::Permanent(format!(
-                "transaction {} is in FAILED state",
-                transaction_id
+                "transaction {transaction_id} is in FAILED state"
             )));
         }
         _ => {} // PENDING or PROCESSING — proceed
@@ -228,10 +223,7 @@ pub async fn process_transaction(
                 mark_failed(
                     &mut tx,
                     transaction_id,
-                    &format!(
-                        "fraud_check_timeout: no response within {}s",
-                        FRAUD_CHECK_TIMEOUT_SECS
-                    ),
+                    &format!("fraud_check_timeout: no response within {FRAUD_CHECK_TIMEOUT_SECS}s"),
                     envelope.correlation_id,
                 )
                 .await?;
@@ -376,12 +368,10 @@ async fn process_transfer(
     dest_id: Option<Uuid>,
     correlation_id: Uuid,
 ) -> Result<(), ProcessError> {
-    let source_id = source_id.ok_or_else(|| {
-        ProcessError::Permanent("TRANSFER missing source_account_id".into())
-    })?;
-    let dest_id = dest_id.ok_or_else(|| {
-        ProcessError::Permanent("TRANSFER missing dest_account_id".into())
-    })?;
+    let source_id = source_id
+        .ok_or_else(|| ProcessError::Permanent("TRANSFER missing source_account_id".into()))?;
+    let dest_id = dest_id
+        .ok_or_else(|| ProcessError::Permanent("TRANSFER missing dest_account_id".into()))?;
 
     // Lock accounts in consistent UUID order to prevent deadlock on concurrent
     // transfers between the same pair of accounts in opposite directions.
@@ -419,7 +409,9 @@ async fn process_transfer(
     };
 
     if !source_is_active {
-        return Err(ProcessError::Domain(DomainError::AccountInactive(source_id)));
+        return Err(ProcessError::Domain(DomainError::AccountInactive(
+            source_id,
+        )));
     }
     if source_balance < amount {
         return Err(ProcessError::Domain(DomainError::InsufficientFunds {
@@ -462,8 +454,24 @@ async fn process_transfer(
     .await?;
 
     // Write double-entry ledger (debit + credit must balance).
-    write_ledger_entry(tx, transaction_id, source_id, "DEBIT", amount, new_source_balance).await?;
-    write_ledger_entry(tx, transaction_id, dest_id, "CREDIT", amount, new_dest_balance).await?;
+    write_ledger_entry(
+        tx,
+        transaction_id,
+        source_id,
+        "DEBIT",
+        amount,
+        new_source_balance,
+    )
+    .await?;
+    write_ledger_entry(
+        tx,
+        transaction_id,
+        dest_id,
+        "CREDIT",
+        amount,
+        new_dest_balance,
+    )
+    .await?;
 
     audit::record(
         &mut **tx,
@@ -499,9 +507,8 @@ async fn process_credit(
     dest_id: Option<Uuid>,
     correlation_id: Uuid,
 ) -> Result<(), ProcessError> {
-    let dest_id = dest_id.ok_or_else(|| {
-        ProcessError::Permanent("CREDIT missing dest_account_id".into())
-    })?;
+    let dest_id =
+        dest_id.ok_or_else(|| ProcessError::Permanent("CREDIT missing dest_account_id".into()))?;
 
     let dest = sqlx::query!(
         "SELECT balance, version, is_active FROM accounts WHERE id = $1 FOR UPDATE",
@@ -559,9 +566,8 @@ async fn process_debit(
     source_id: Option<Uuid>,
     correlation_id: Uuid,
 ) -> Result<(), ProcessError> {
-    let source_id = source_id.ok_or_else(|| {
-        ProcessError::Permanent("DEBIT missing source_account_id".into())
-    })?;
+    let source_id = source_id
+        .ok_or_else(|| ProcessError::Permanent("DEBIT missing source_account_id".into()))?;
 
     let source = sqlx::query!(
         "SELECT balance, version, is_active FROM accounts WHERE id = $1 FOR UPDATE",
@@ -571,7 +577,9 @@ async fn process_debit(
     .await?;
 
     if !source.is_active {
-        return Err(ProcessError::Domain(DomainError::AccountInactive(source_id)));
+        return Err(ProcessError::Domain(DomainError::AccountInactive(
+            source_id,
+        )));
     }
     if source.balance < amount {
         return Err(ProcessError::Domain(DomainError::InsufficientFunds {

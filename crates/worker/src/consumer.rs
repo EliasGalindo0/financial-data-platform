@@ -37,12 +37,12 @@ pub struct TransactionConsumer {
 }
 
 impl TransactionConsumer {
-    pub fn new(
-        worker_id: String,
-        pool: Arc<PgPool>,
-        config: Arc<WorkerConfig>,
-    ) -> Self {
-        Self { worker_id, pool, config }
+    pub fn new(worker_id: String, pool: Arc<PgPool>, config: Arc<WorkerConfig>) -> Self {
+        Self {
+            worker_id,
+            pool,
+            config,
+        }
     }
 
     pub async fn run(self) -> anyhow::Result<()> {
@@ -119,7 +119,11 @@ impl TransactionConsumer {
                                 "message processing permanently failed, sending to DLQ"
                             );
                             match self
-                                .send_to_dlq(&payload, &e.to_string(), Some(envelope.correlation_id))
+                                .send_to_dlq(
+                                    &payload,
+                                    &e.to_string(),
+                                    Some(envelope.correlation_id),
+                                )
                                 .await
                             {
                                 Ok(()) => {
@@ -169,12 +173,10 @@ impl TransactionConsumer {
             .with_max_times(max_retries as usize);
 
         let envelope_ref = envelope;
-        (|| async {
-            processor::process_transaction(&pool, envelope_ref, &worker_id).await
-        })
-        .retry(&backoff)
-        .when(|e: &ProcessError| e.is_retryable())
-        .await
+        (|| async { processor::process_transaction(&pool, envelope_ref, &worker_id).await })
+            .retry(&backoff)
+            .when(|e: &ProcessError| e.is_retryable())
+            .await
     }
 
     /// Write a failed message to the dead-letter queue table.
@@ -188,8 +190,7 @@ impl TransactionConsumer {
         correlation_id: Option<Uuid>,
     ) -> Result<(), sqlx::Error> {
         if shared::fault::should_fail("dlq.write", correlation_id) {
-            return Err(sqlx::Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(sqlx::Error::Io(std::io::Error::other(
                 "fault injected: dlq.write",
             )));
         }

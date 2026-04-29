@@ -4,9 +4,9 @@ use tracing::info;
 
 mod config;
 mod consumer;
-mod processor;
-mod ledger;
 mod fraud;
+mod ledger;
+mod processor;
 
 use config::WorkerConfig;
 
@@ -33,16 +33,12 @@ async fn main() -> anyhow::Result<()> {
     // Spawn N parallel consumer tasks
     let mut handles = Vec::new();
     for worker_id in 0..cfg.worker_concurrency {
-        let worker_id = format!("worker-{}", worker_id);
+        let worker_id = format!("{}-{worker_id}", cfg.worker_id_prefix);
         let pool = Arc::clone(&pool);
         let cfg = Arc::clone(&cfg);
 
         let handle = tokio::spawn(async move {
-            let consumer = consumer::TransactionConsumer::new(
-                worker_id,
-                pool,
-                cfg,
-            );
+            let consumer = consumer::TransactionConsumer::new(worker_id, pool, cfg);
             consumer.run().await
         });
 

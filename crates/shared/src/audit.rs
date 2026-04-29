@@ -7,6 +7,7 @@ use uuid::Uuid;
 /// Write a row to audit_log within the current transaction/connection.
 /// Call this inside the same DB transaction as the business operation
 /// so the audit entry is atomic with the change it records.
+#[allow(clippy::too_many_arguments)]
 pub async fn record<'e, E, T>(
     executor: E,
     entity_type: &str,
@@ -15,7 +16,7 @@ pub async fn record<'e, E, T>(
     old_state: Option<&T>,
     new_state: &T,
     actor_id: &str,
-    actor_type: &str,     // "USER" | "SYSTEM" | "WORKER"
+    actor_type: &str, // "USER" | "SYSTEM" | "WORKER"
     correlation_id: Uuid,
 ) -> Result<(), sqlx::Error>
 where

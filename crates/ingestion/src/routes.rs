@@ -8,6 +8,7 @@ use crate::config::AppConfig;
 use crate::handlers;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct AppState {
     pub pool: PgPool,
     pub redis: redis::aio::ConnectionManager,
@@ -20,8 +21,14 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(handlers::health::health_check))
         .route("/ready", get(handlers::health::readiness_check))
         // Transaction ingestion
-        .route("/v1/transactions", post(handlers::transactions::submit_transaction))
-        .route("/v1/transactions/:id", get(handlers::transactions::get_transaction))
+        .route(
+            "/v1/transactions",
+            post(handlers::transactions::submit_transaction),
+        )
+        .route(
+            "/v1/transactions/:id",
+            get(handlers::transactions::get_transaction),
+        )
         // Account management
         .route("/v1/accounts", post(handlers::accounts::create_account))
         .route("/v1/accounts/:id", get(handlers::accounts::get_account))
