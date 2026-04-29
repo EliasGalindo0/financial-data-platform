@@ -1,6 +1,7 @@
 use chrono::Utc;
 use serde::Serialize;
 use sqlx::PgExecutor;
+use tracing::warn;
 use uuid::Uuid;
 
 /// Write a row to audit_log within the current transaction/connection.
@@ -21,9 +22,16 @@ where
     E: PgExecutor<'e>,
     T: Serialize,
 {
-    let old_json = old_state
-        .map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null));
-    let new_json = serde_json::to_value(new_state).unwrap_or(serde_json::Value::Null);
+    let old_json = old_state.map(|s| {
+        serde_json::to_value(s).unwrap_or_else(|e| {
+            warn!(error = %e, %entity_id, "failed to serialize old_state for audit log — storing null");
+            serde_json::Value::Null
+        })
+    });
+    let new_json = serde_json::to_value(new_state).unwrap_or_else(|e| {
+        warn!(error = %e, %entity_id, "failed to serialize new_state for audit log — storing null");
+        serde_json::Value::Null
+    });
 
     sqlx::query!(
         r#"

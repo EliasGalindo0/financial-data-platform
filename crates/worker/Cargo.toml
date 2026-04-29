@@ -27,3 +27,4 @@ config = { workspace = true }
 dotenvy = { workspace = true }
 rdkafka = { workspace = true }
 backon = { workspace = true }
+hex = { workspace = true }
