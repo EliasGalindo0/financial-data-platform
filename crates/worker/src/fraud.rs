@@ -6,6 +6,7 @@
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use uuid::Uuid;
+use std::time::Duration;
 
 pub struct FraudResult {
     pub is_blocked: bool,
@@ -17,6 +18,10 @@ pub struct FraudChecker;
 
 impl FraudChecker {
     pub async fn check(transaction_id: Uuid, amount: Decimal) -> FraudResult {
+        if shared::fault::should_fail("fraud.hang", Some(transaction_id)) {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+        }
+
         // Rule 1: Block transactions over $100,000 without manual review
         if amount > dec!(100_000) {
             return FraudResult {

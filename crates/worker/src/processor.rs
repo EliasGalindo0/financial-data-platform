@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use rust_decimal::Decimal;
 use sqlx::PgPool;
+use sqlx::Row;
 use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
 
@@ -88,6 +89,15 @@ pub async fn process_transaction(
 ) -> Result<(), ProcessError> {
     let transaction_id = envelope.aggregate_id;
 
+    if shared::fault::should_fail("processor.transient", Some(envelope.correlation_id)) {
+        return Err(ProcessError::Database(sqlx::Error::PoolTimedOut));
+    }
+    if shared::fault::should_fail("processor.permanent", Some(envelope.correlation_id)) {
+        return Err(ProcessError::Permanent(
+            "fault injected: processor.permanent".into(),
+        ));
+    }
+
     // ── Begin DB transaction ───────────────────────────────────────────────────
     // The advisory lock is acquired *inside* this transaction via
     // pg_try_advisory_xact_lock, so it is automatically released on commit
@@ -97,13 +107,11 @@ pub async fn process_transaction(
 
     // ── Acquire transaction-level advisory lock ───────────────────────────────
     let lock_key = derive_advisory_lock_key(transaction_id);
-    let locked = sqlx::query_scalar!(
-        "SELECT pg_try_advisory_xact_lock($1)",
-        lock_key
-    )
-    .fetch_one(&mut *tx)
-    .await?
-    .unwrap_or(false);
+    let locked: Option<bool> = sqlx::query_scalar("SELECT pg_try_advisory_xact_lock($1)")
+        .bind(lock_key)
+        .fetch_one(&mut *tx)
+        .await?;
+    let locked = locked.unwrap_or(false);
 
     if !locked {
         // Another worker is processing this transaction — skip gracefully.
@@ -118,7 +126,7 @@ pub async fn process_transaction(
     // ── Load transaction with row-level lock ──────────────────────────────────
     // SELECT FOR UPDATE prevents concurrent admin cancellations or other writes
     // from racing with our processing within the same DB transaction.
-    let txn = sqlx::query!(
+    let txn_row = sqlx::query(
         r#"
         SELECT
             id, idempotency_key, transaction_type::text AS transaction_type,
@@ -128,15 +136,25 @@ pub async fn process_transaction(
         WHERE id = $1
         FOR UPDATE
         "#,
-        transaction_id,
     )
+    .bind(transaction_id)
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(ProcessError::NotFound(transaction_id))?;
 
+    let txn_id: Uuid = txn_row.try_get("id")?;
+    let txn_status: Option<String> = txn_row.try_get("status")?;
+    let txn_amount: Decimal = txn_row.try_get("amount")?;
+    let txn_transaction_type: Option<String> = txn_row.try_get("transaction_type")?;
+    let txn_source_account_id: Option<Uuid> = txn_row.try_get("source_account_id")?;
+    let txn_dest_account_id: Option<Uuid> = txn_row.try_get("dest_account_id")?;
+    let txn_version: i64 = txn_row.try_get("version")?;
+    let txn_retry_count: Option<i32> = txn_row.try_get("retry_count")?;
+    let txn_compliance_checked: Option<bool> = txn_row.try_get("compliance_checked")?;
+
     // ── Idempotency: skip if already in a terminal state ──────────────────────
     // Handles worker restarts and Kafka message redelivery after a crash.
-    let current_status = txn.status.as_deref().unwrap_or("PENDING");
+    let current_status = txn_status.as_deref().unwrap_or("PENDING");
     match current_status {
         "SETTLED" | "REVERSED" => {
             info!(
@@ -162,7 +180,7 @@ pub async fn process_transaction(
     // ── Mark as PROCESSING (with optimistic lock check) ───────────────────────
     // The version check ensures we don't overwrite a concurrent update that
     // slipped past the advisory lock (belt-and-suspenders).
-    let rows_updated = sqlx::query!(
+    let rows_updated = sqlx::query(
         r#"
         UPDATE transactions
         SET status = 'PROCESSING'::transaction_status,
@@ -172,10 +190,10 @@ pub async fn process_transaction(
           AND version = $3
           AND status IN ('PENDING'::transaction_status, 'PROCESSING'::transaction_status)
         "#,
-        worker_id,
-        transaction_id,
-        txn.version,
     )
+    .bind(worker_id)
+    .bind(transaction_id)
+    .bind(txn_version)
     .execute(&mut *tx)
     .await?
     .rows_affected();
@@ -185,18 +203,18 @@ pub async fn process_transaction(
         return Err(ProcessError::Domain(DomainError::OptimisticLockConflict {
             entity: "Transaction".into(),
             id: transaction_id,
-            expected: txn.version,
-            actual: txn.version + 1, // approximate — another writer updated first
+            expected: txn_version,
+            actual: txn_version + 1, // approximate — another writer updated first
         }));
     }
 
     // ── Fraud / compliance check ──────────────────────────────────────────────
     // Wrapped in a hard timeout: if the fraud service is unavailable or slow,
     // we fail the transaction permanently rather than blocking the worker.
-    if !txn.compliance_checked.unwrap_or(false) {
+    if !txn_compliance_checked.unwrap_or(false) {
         let fraud_result = match tokio::time::timeout(
             Duration::from_secs(FRAUD_CHECK_TIMEOUT_SECS),
-            FraudChecker::check(transaction_id, txn.amount),
+            FraudChecker::check(transaction_id, txn_amount),
         )
         .await
         {
@@ -244,15 +262,15 @@ pub async fn process_transaction(
     }
 
     // ── Execute business logic based on transaction type ─────────────────────
-    let transaction_type = txn.transaction_type.as_deref().unwrap_or("");
+    let transaction_type = txn_transaction_type.as_deref().unwrap_or("");
     let result = match transaction_type {
         "TRANSFER" => {
             process_transfer(
                 &mut tx,
                 transaction_id,
-                txn.amount,
-                txn.source_account_id,
-                txn.dest_account_id,
+                txn_amount,
+                txn_source_account_id,
+                txn_dest_account_id,
                 envelope.correlation_id,
             )
             .await
@@ -261,8 +279,8 @@ pub async fn process_transaction(
             process_credit(
                 &mut tx,
                 transaction_id,
-                txn.amount,
-                txn.dest_account_id,
+                txn_amount,
+                txn_dest_account_id,
                 envelope.correlation_id,
             )
             .await
@@ -271,8 +289,8 @@ pub async fn process_transaction(
             process_debit(
                 &mut tx,
                 transaction_id,
-                txn.amount,
-                txn.source_account_id,
+                txn_amount,
+                txn_source_account_id,
                 envelope.correlation_id,
             )
             .await
@@ -692,4 +710,16 @@ fn derive_advisory_lock_key(id: Uuid) -> i64 {
     let high = i64::from_be_bytes(bytes[0..8].try_into().unwrap());
     let low = i64::from_be_bytes(bytes[8..16].try_into().unwrap());
     high ^ low
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retryability_matches_policy() {
+        assert!(ProcessError::Database(sqlx::Error::PoolTimedOut).is_retryable());
+        assert!(!ProcessError::FraudCheckTimeout(5).is_retryable());
+        assert!(!ProcessError::Permanent("nope".into()).is_retryable());
+    }
 }

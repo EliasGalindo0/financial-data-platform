@@ -96,6 +96,20 @@ pub enum TransactionType {
     Adjustment,
 }
 
+impl std::fmt::Display for TransactionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            TransactionType::Credit => "CREDIT",
+            TransactionType::Debit => "DEBIT",
+            TransactionType::Transfer => "TRANSFER",
+            TransactionType::Fee => "FEE",
+            TransactionType::Reversal => "REVERSAL",
+            TransactionType::Adjustment => "ADJUSTMENT",
+        };
+        write!(f, "{s}")
+    }
+}
+
 // ============================================================================
 // AGGREGATES
 // ============================================================================

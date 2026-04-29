@@ -14,8 +14,11 @@ pub enum DomainError {
     #[error("amount must be positive, got {0}")]
     InvalidAmount(String),
 
-    #[error("currency mismatch: source={source}, dest={dest}")]
-    CurrencyMismatch { source: String, dest: String },
+    #[error("currency mismatch: source={source_currency}, dest={dest_currency}")]
+    CurrencyMismatch {
+        source_currency: String,
+        dest_currency: String,
+    },
 
     // Business logic
     #[error("insufficient funds: account={account_id}, required={required}, available={available}")]

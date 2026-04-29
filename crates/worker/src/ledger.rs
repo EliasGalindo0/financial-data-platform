@@ -2,6 +2,7 @@
 // The actual entry writing is in processor.rs (co-located with the transaction).
 
 use rust_decimal::Decimal;
+use sqlx::Row;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -12,7 +13,7 @@ pub async fn verify_account_balance(
     pool: &PgPool,
     account_id: Uuid,
 ) -> anyhow::Result<Option<(Decimal, Decimal)>> {
-    let result = sqlx::query!(
+    let row = sqlx::query(
         r#"
         WITH ledger_balance AS (
             SELECT
@@ -27,13 +28,14 @@ pub async fn verify_account_balance(
         CROSS JOIN accounts a
         WHERE a.id = $1
         "#,
-        account_id,
     )
+    .bind(account_id)
     .fetch_one(pool)
     .await?;
 
-    let ledger = result.ledger_balance.unwrap_or(Decimal::ZERO);
-    let account = result.account_balance;
+    let ledger: Option<Decimal> = row.try_get("ledger_balance")?;
+    let ledger = ledger.unwrap_or(Decimal::ZERO);
+    let account: Decimal = row.try_get("account_balance")?;
 
     if ledger != account {
         Ok(Some((ledger, account)))

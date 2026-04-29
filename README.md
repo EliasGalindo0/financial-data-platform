@@ -1131,6 +1131,15 @@ Workers are stateless — add pods freely. Kafka rebalances partitions automatic
 | Two workers race on same transaction | First acquires advisory lock; second calls `pg_try_advisory_lock` → gets false → skips. No double-processing. |
 | Balance drift (software bug) | `verify_account_balance()` reconciliation detects mismatch between `accounts.balance` and `SUM(ledger_entries)`. Triggers incident. |
 
+### Chaos / failure simulation (fault injection)
+
+For deterministic “real-world failure” simulation in local dev and CI, set `FDP_FAULTS` to inject faults at specific points:
+
+- **`FDP_FAULTS=processor.transient=every:3`**: forces a transient processing failure (exercise retry/backoff).
+- **`FDP_FAULTS=processor.permanent=once`**: forces a permanent failure (exercise FAILED + DLQ path).
+- **`FDP_FAULTS=fraud.hang=once`**: simulates a hung fraud service (exercise the fraud timeout behavior).
+- **`FDP_FAULTS=dlq.write=always`**: simulates DLQ DB write failure (exercise “do not commit offset” behavior).
+
 ---
 
 ## Production Checklist

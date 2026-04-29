@@ -4,3 +4,4 @@ pub mod error;
 pub mod idempotency;
 pub mod audit;
 pub mod db;
+pub mod fault;

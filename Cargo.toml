@@ -11,7 +11,7 @@ resolver = "2"
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.88"
 
 [workspace.dependencies]
 # Async runtime
@@ -27,7 +27,7 @@ tower-http = { version = "0.5", features = ["trace", "compression-gzip", "reques
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "rust_decimal", "json", "migrate"] }
 
 # Messaging
-rdkafka = { version = "0.36", features = ["cmake-build", "ssl", "sasl"] }
+rdkafka = { version = "0.36", features = ["cmake-build", "ssl"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

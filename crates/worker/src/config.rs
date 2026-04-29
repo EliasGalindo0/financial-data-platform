@@ -23,7 +23,7 @@ impl WorkerConfig {
             .add_source(config::File::with_name("config/default").required(false))
             .add_source(config::Environment::with_prefix("WORKER").separator("__"))
             .set_default("db_max_connections", 10u32)?
-            .set_default("worker_concurrency", 4usize)?
+            .set_default("worker_concurrency", 4u64)?
             .set_default("max_retries", 5u32)?
             .set_default("retry_backoff_ms", 1000u64)?
             .set_default("log_level", "info")?

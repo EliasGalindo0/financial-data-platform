@@ -15,6 +15,7 @@ use axum::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use sqlx::Row;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -32,11 +33,10 @@ use crate::routes::AppState;
 // REQUEST / RESPONSE TYPES
 // ============================================================================
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct SubmitTransactionRequest {
     pub transaction_type: TransactionType,
 
-    #[validate(range(min = "0.0001", message = "amount must be positive"))]
     pub amount: Decimal,
 
     pub currency: Currency,
@@ -89,6 +89,12 @@ pub async fn submit_transaction(
         )
     })?;
 
+    if body.amount <= Decimal::ZERO {
+        return Err(ApiError::ValidationError(
+            "amount must be positive".into(),
+        ));
+    }
+
     // Business-logic validation
     validate_parties(&body)?;
 
@@ -140,7 +146,7 @@ async fn idempotency_check_and_insert(
     // ── Atomic check-and-insert for idempotency ───────────────────────────────
     // ON CONFLICT DO NOTHING, then SELECT to get existing row.
     // This is atomic because we're inside a serializable transaction.
-    let existing = sqlx::query!(
+    let existing = sqlx::query(
         r#"
         INSERT INTO transactions (
             id, idempotency_key, transaction_type, status, amount, currency,
@@ -150,47 +156,52 @@ async fn idempotency_check_and_insert(
                 $6, $7, $8, $9, $10)
         ON CONFLICT (idempotency_key) WHERE status != 'REVERSED'
         DO NOTHING
-        RETURNING id, status::text, request_hash, false AS was_duplicate
+        RETURNING id, status::text AS status, request_hash
         "#,
-        transaction_id,
-        idempotency_key.as_str(),
-        body.transaction_type as TransactionType,
-        body.amount,
-        body.currency as Currency,
-        body.source_account_id,
-        body.dest_account_id,
-        body.description,
-        body.metadata.clone().unwrap_or(serde_json::json!({})),
-        request_hash,
     )
+    .bind(transaction_id)
+    .bind(idempotency_key.as_str())
+    .bind(body.transaction_type.to_string())
+    .bind(body.amount)
+    .bind(body.currency.to_string())
+    .bind(body.source_account_id)
+    .bind(body.dest_account_id)
+    .bind(body.description.as_deref())
+    .bind(body.metadata.clone().unwrap_or(serde_json::json!({})))
+    .bind(request_hash)
     .fetch_optional(&mut *tx)
     .await?;
 
     // If insert was skipped (conflict), fetch the existing row
     let (actual_id, status, was_duplicate) = if let Some(row) = existing {
-        (row.id, row.status, false)
+        let id: Uuid = row.try_get("id")?;
+        let status: Option<String> = row.try_get("status")?;
+        (id, status.unwrap_or_default(), false)
     } else {
         // Conflict — load existing row
-        let row = sqlx::query!(
+        let row = sqlx::query(
             r#"
             SELECT id, status::text AS status, request_hash
             FROM transactions
             WHERE idempotency_key = $1 AND status != 'REVERSED'
             "#,
-            idempotency_key.as_str(),
         )
+        .bind(idempotency_key.as_str())
         .fetch_one(&mut *tx)
         .await?;
 
         // ── Hash mismatch: same key, different body → client bug ──────────────
-        if row.request_hash != request_hash {
+        let existing_hash: String = row.try_get("request_hash")?;
+        if existing_hash != request_hash {
             tx.rollback().await.ok();
             return Err(ApiError::IdempotencyKeyReused {
                 key: idempotency_key.to_string(),
             });
         }
 
-        (row.id, row.status.unwrap_or_default(), true)
+        let id: Uuid = row.try_get("id")?;
+        let status: Option<String> = row.try_get("status")?;
+        (id, status.unwrap_or_default(), true)
     };
 
     // If it was a fresh insert, write outbox event & audit log

@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use axum::{middleware, Router};
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     timeout::TimeoutLayer,
@@ -10,7 +9,7 @@ use tracing::info;
 
 mod config;
 mod handlers;
-mod middleware as mw;
+mod middleware;
 mod repository;
 mod routes;
 

@@ -33,23 +33,23 @@ where
         serde_json::Value::Null
     });
 
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO audit_log
             (entity_type, entity_id, action, old_state, new_state,
              actor_id, actor_type, correlation_id, occurred_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         "#,
-        entity_type,
-        entity_id,
-        action,
-        old_json,
-        new_json,
-        actor_id,
-        actor_type,
-        correlation_id,
-        Utc::now(),
     )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(action)
+    .bind(old_json)
+    .bind(new_json)
+    .bind(actor_id)
+    .bind(actor_type)
+    .bind(correlation_id)
+    .bind(Utc::now())
     .execute(executor)
     .await?;
 

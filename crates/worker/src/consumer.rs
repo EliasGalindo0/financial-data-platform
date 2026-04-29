@@ -23,6 +23,7 @@ use rdkafka::{
 };
 use sqlx::PgPool;
 use tracing::{error, info, instrument, warn};
+use uuid::Uuid;
 
 use shared::events::EventEnvelope;
 
@@ -87,7 +88,7 @@ impl TransactionConsumer {
                             // Attempt DLQ write; if it fails, log full payload and
                             // commit anyway to unblock the consumer.
                             if let Err(dlq_err) =
-                                self.send_to_dlq(&payload, &e.to_string()).await
+                                self.send_to_dlq(&payload, &e.to_string(), None).await
                             {
                                 error!(
                                     worker_id = %self.worker_id,
@@ -117,7 +118,10 @@ impl TransactionConsumer {
                                 error = %e,
                                 "message processing permanently failed, sending to DLQ"
                             );
-                            match self.send_to_dlq(&payload, &e.to_string()).await {
+                            match self
+                                .send_to_dlq(&payload, &e.to_string(), Some(envelope.correlation_id))
+                                .await
+                            {
                                 Ok(()) => {
                                     // DLQ accepted the message — safe to advance the offset.
                                     consumer.commit_message(&msg, CommitMode::Async).ok();
@@ -168,7 +172,7 @@ impl TransactionConsumer {
         (|| async {
             processor::process_transaction(&pool, envelope_ref, &worker_id).await
         })
-        .retry(backoff)
+        .retry(&backoff)
         .when(|e: &ProcessError| e.is_retryable())
         .await
     }
@@ -177,20 +181,32 @@ impl TransactionConsumer {
     ///
     /// Returns `Ok(())` on success. Returns `Err` if the DB write fails — the
     /// caller decides whether to commit the Kafka offset based on this result.
-    async fn send_to_dlq(&self, payload: &[u8], error_message: &str) -> Result<(), sqlx::Error> {
+    async fn send_to_dlq(
+        &self,
+        payload: &[u8],
+        error_message: &str,
+        correlation_id: Option<Uuid>,
+    ) -> Result<(), sqlx::Error> {
+        if shared::fault::should_fail("dlq.write", correlation_id) {
+            return Err(sqlx::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "fault injected: dlq.write",
+            )));
+        }
+
         let json_payload = serde_json::from_slice::<serde_json::Value>(payload)
             .unwrap_or_else(|_| serde_json::json!({"raw": hex::encode(payload)}));
 
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO dead_letter_queue (source_topic, payload, error_message)
             VALUES ($1, $2, $3)
             ON CONFLICT DO NOTHING
             "#,
-            self.config.kafka_topic_transactions,
-            json_payload,
-            error_message,
         )
+        .bind(&self.config.kafka_topic_transactions)
+        .bind(json_payload)
+        .bind(error_message)
         .execute(self.pool.as_ref())
         .await?;
 

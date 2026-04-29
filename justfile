@@ -222,6 +222,11 @@ docker-build:
 test:
     cargo test --workspace
 
+# Roda `cargo test --workspace` em container (Rust 1.88) + Postgres temporário.
+# Útil quando você não tem Rust/Cargo local ou quer reproduzir o ambiente de CI.
+test-docker:
+    MSYS2_ARG_CONV_EXCL='*' bash -lc 'set -euo pipefail; docker rm -f fdp-test-postgres >/dev/null 2>&1 || true; docker run -d --name fdp-test-postgres -e POSTGRES_USER=finplatform -e POSTGRES_PASSWORD=dev_password_change_in_prod -e POSTGRES_DB=finplatform -p 55432:5432 postgres:16 >/dev/null; docker run --rm --network host -v "c:/Dev/financial-data-platform/migrations:/migrations" -e PGPASSWORD=dev_password_change_in_prod postgres:16 bash -lc "until pg_isready -h 127.0.0.1 -p 55432 -U finplatform; do sleep 1; done && psql -h 127.0.0.1 -p 55432 -U finplatform -d finplatform -v ON_ERROR_STOP=1 -f /migrations/001_initial_schema.sql -f /migrations/002_indexes_and_partitioning.sql" >/dev/null; docker run --rm --network host -v "c:/Dev/financial-data-platform:/work" -w /work rust:1.88 sh -lc "PATH=\\"/usr/local/cargo/bin:\\$PATH\\"; export PATH; apt-get update >/dev/null; apt-get install -y --no-install-recommends cmake pkg-config build-essential libssl-dev zlib1g-dev ca-certificates >/dev/null; export DATABASE_URL=postgresql://finplatform:dev_password_change_in_prod@127.0.0.1:55432/finplatform; cargo test --workspace"; docker rm -f fdp-test-postgres >/dev/null'
+
 # Smoke test completo contra a API rodando
 test-api:
     bash scripts/test-api.sh
